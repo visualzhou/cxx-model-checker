@@ -8,6 +8,7 @@
 #include <queue>
 #include <unordered_map>
 #include <exception>
+#include <algorithm>
 
 using FingerPrint = long long;
 int8_t operator "" _b(unsigned long long number) {
@@ -51,34 +52,43 @@ protected:
     std::function<void(State)> _onNewState;
 };
 
+class InvariantViolatedException : public std::exception {};
+
 class Checker {
 public:
     Checker(StateChecker* stateChecker) : _stateChecker(stateChecker) {}
     void run(StateGenerator* generator);
     void onNewState(const State&);
 private:
+    std::vector<State> trace(const State& endState) const;
     StateChecker* _stateChecker;
     std::unordered_map<FingerPrint, State> _seenStates;
     std::queue<State> _unvisited;
 };
 
 void Checker::run(StateGenerator* generator) {
-    while (!_unvisited.empty()) {
-        auto curState = _unvisited.front();
-        _unvisited.pop();
+    try {
+        while (!_unvisited.empty()) {
+            auto curState = _unvisited.front();
+            _unvisited.pop();
 
-        // Create the new state.
-        auto newState = curState;
-        newState.prevHash = curState.hash();
-        generator->generate(newState);
-    }
+            // Create the new state.
+            auto newState = curState;
+            newState.prevHash = curState.hash();
+            generator->generate(newState);
+        }
+    } catch (InvariantViolatedException& exp) {}
 }
 
 void Checker::onNewState(const State& state) {
     // Check invariant.
     if (!_stateChecker->satisfyInvariant(state)) {
         std::cout << "Violated invraiant, last state: " << state << std::endl;
-        throw std::exception();
+        auto errorTrace = trace(state);
+        for (size_t i = 0; i < errorTrace.size(); i++) {
+            std::cout << "State: " << i << std::endl << errorTrace[i] << std::endl;
+        }
+        throw InvariantViolatedException();
     }
     
     // If the fp doesn't exist in the unique map, add it.
@@ -89,6 +99,18 @@ void Checker::onNewState(const State& state) {
 
     // Add the new to unvisited.
     _unvisited.push(state);
+}
+
+std::vector<State> Checker::trace(const State& endState) const {
+    std::vector<State> trace;
+    trace.push_back(endState);
+    auto cur = endState;
+    while (cur.prevHash != 0) {
+        cur = _seenStates.find(cur.prevHash)->second;
+        trace.push_back(cur);
+    }
+    std::reverse(trace.begin(), trace.end());
+    return trace;
 }
 
 class DieHardStateChecker : public StateChecker {
@@ -154,6 +176,7 @@ void test() {
     s.big = 5_b;
     std::cout << s.hash() << std::endl;
 }
+
 int main(int argv, char** argc) {
     // test();
 
