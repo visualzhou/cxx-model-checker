@@ -139,6 +139,7 @@ public:
     ~DieHardStateGenerator() = default;
 
     void generate(State& state) override {
+        // TODO: Replace this with "Either" syntax sugar.
         auto wrap = [&](std::function<void()> fun) {
             // Run the state generator on a state copy.
             auto temp = state;
