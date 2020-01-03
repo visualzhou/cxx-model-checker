@@ -6,7 +6,7 @@ TLA+ and TLC are great tools, but not perfect for a few reasons.
 3. TLA+ is mathenmatical and elegant but isn't designed for execution.
 4. C++ has a richer community for system programming, low-level performance optimization and distributed execution than Java.
 
-Explict-state model checking seems more of an engineering problem than a mathenmatical problem. This project is an attampt to build a small model checker in C++, so developers can write their models and execute them in a familiar language, just like writing unit tests with unit testing frameworks.
+Explicit-state model checking seems more of an engineering problem than a mathenmatical problem. This project is an attampt to build a small model checker in C++, so developers can write their models and execute them in a familiar language, just like writing unit tests with unit testing frameworks.
 
 [Cases](https://learntla.com/pluscal/behaviors/) that can generate new states:
 * Either
