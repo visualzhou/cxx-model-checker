@@ -10,7 +10,7 @@
 #include <exception>
 #include <algorithm>
 
-using FingerPrint = long long;
+using Fingerprint = long long;
 int8_t operator "" _b(unsigned long long number) {
     return (int8_t)number;
 }
@@ -19,7 +19,7 @@ struct State {
     int8_t big;
     int8_t small;
 
-    FingerPrint prevHash;
+    Fingerprint prevHash;
 
     // TODO: Symmetry.
     long long hash() const;
@@ -29,8 +29,8 @@ struct State {
     }
 };
 
-FingerPrint State::hash() const {
-    return ((FingerPrint)big << (sizeof(small) * 8)) | (FingerPrint)small;
+Fingerprint State::hash() const {
+    return ((Fingerprint)big << (sizeof(small) * 8)) | (Fingerprint)small;
 }
 
 class StateChecker {
@@ -71,7 +71,7 @@ private:
     std::vector<State> trace(const State& endState) const;
     StateChecker* _stateChecker;
     StateGenerator* _generator;
-    std::unordered_map<FingerPrint, State> _seenStates;
+    std::unordered_map<Fingerprint, State> _seenStates;
     std::queue<State> _unvisited;
 };
 
