@@ -12,6 +12,26 @@
 #include <algorithm>
 
 using Fingerprint = long long;
+
+template <class StateType>
+class Checker {
+public:
+    void run(std::vector<StateType> initialStates);
+    void onNewState(const StateType&);
+
+    static Checker<StateType>* get() { return globalChecker; }
+
+private:
+    static Checker<StateType>* globalChecker;
+    std::vector<StateType> trace(const StateType& endState) const;
+
+    std::unordered_map<Fingerprint, StateType> _seenStates;
+    std::queue<StateType> _unvisited;
+};
+
+template <class StateType>
+Checker<StateType>* Checker<StateType>::globalChecker = new Checker<StateType>;
+
 int8_t operator "" _b(unsigned long long number) {
     return (int8_t)number;
 }
@@ -23,10 +43,10 @@ struct State {
     Fingerprint prevHash;
 
     // TODO: Symmetry.
-    long long hash() const;
+    Fingerprint hash() const;
 
     friend std::ostream& operator << (std::ostream &out, const State& s) {
-        return out << "[big: " << (int)s.big << ", small: " << (int)s.small << "]" << std::endl;
+        return out << "[big: " << (int)s.big << ", small: " << (int)s.small << "]";
     }
     bool satisfyInvariant() const;
     void generate();
@@ -39,27 +59,6 @@ Fingerprint State::hash() const {
 bool State::satisfyInvariant() const {
     return big != 4_b;
 }
-
-template <class StateType>
-class Checker {
-public:
-    void run(std::vector<StateType> initialStates);
-    void onNewState(const StateType&);
-
-private:
-    std::vector<StateType> trace(const StateType& endState) const;
-
-    std::unordered_map<Fingerprint, StateType> _seenStates;
-    std::queue<StateType> _unvisited;
-};
-
-template <class StateType>
-void onNewState(StateType&) {};
-
-// Declare the global checker.
-Checker<State> *__global_checker = nullptr;
-template <>
-void onNewState(State& s) { __global_checker->onNewState(s); };
 
 class InvariantViolatedException : public std::exception {};
 
@@ -89,7 +88,7 @@ void Checker<StateType>::onNewState(const StateType& state) {
         std::cout << "Violated invraiant, last state: " << state << std::endl;
         auto errorTrace = trace(state);
         for (size_t i = 0; i < errorTrace.size(); i++) {
-            std::cout << "State: " << i << std::endl << errorTrace[i] << std::endl;
+            std::cout << "State: " << i << std::endl << errorTrace[i] << std::endl << std::endl;
         }
         throw InvariantViolatedException();
     }
@@ -122,7 +121,7 @@ void State::generate() {
         // Generate states on a copy of the current state.
         State temp = *this;
         fun();
-        onNewState(*this);
+        Checker<State>::get()->onNewState(*this);
         *(State*)this = temp;
     };
 
@@ -162,14 +161,11 @@ void State::generate() {
 }
 
 int main(int argv, char** argc) {
-    Checker<State> checker;
-    __global_checker = &checker;
-
     State initialState;
     initialState.big = 0_b;
     initialState.small = 0_b;
 
-    checker.run({initialState});
+    Checker<State>::get()->run({initialState});
 
     return 0;
 }
