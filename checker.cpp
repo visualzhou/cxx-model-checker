@@ -52,28 +52,6 @@ private:
     StateType& getState() { return *static_cast<StateType*>(this); }
 };
 
-struct State : public ModelState<State> {
-    int8_t big;
-    int8_t small;
-
-    // TODO: Symmetry.
-    Fingerprint hash() const;
-
-    friend std::ostream& operator << (std::ostream &out, const State& s) {
-        return out << "[big: " << (int)s.big << ", small: " << (int)s.small << "]";
-    }
-    bool satisfyInvariant() const;
-    void generate();
-};
-
-Fingerprint State::hash() const {
-    return ((Fingerprint)big << (sizeof(small) * 8)) | (Fingerprint)small;
-}
-
-bool State::satisfyInvariant() const {
-    return big != 4_b;
-}
-
 class InvariantViolatedException : public std::exception {};
 
 template <class StateType>
@@ -131,6 +109,33 @@ std::vector<StateType> Checker<StateType>::trace(const StateType& endState) cons
     return trace;
 }
 
+//
+// Define the state.
+//
+struct State : public ModelState<State> {
+    int8_t big;
+    int8_t small;
+
+    // TODO: Symmetry.
+    Fingerprint hash() const;
+
+    friend std::ostream& operator << (std::ostream &out, const State& s) {
+        return out << "[big: " << (int)s.big << ", small: " << (int)s.small << "]";
+    }
+    bool satisfyInvariant() const;
+    void generate();
+};
+
+Fingerprint State::hash() const {
+    return ((Fingerprint)big << (sizeof(small) * 8)) | (Fingerprint)small;
+}
+
+// Define invariant.
+bool State::satisfyInvariant() const {
+    return big != 4_b;
+}
+
+// Define the model.
 void State::generate() {
     // FillSmallJug
     either([&](){ small = 3_b; });
