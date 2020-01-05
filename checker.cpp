@@ -36,11 +36,25 @@ int8_t operator "" _b(unsigned long long number) {
     return (int8_t)number;
 }
 
-struct State {
+template <class StateType>
+struct ModelState {
+    Fingerprint prevHash;
+protected:
+    void either(const std::function<void()>& fun) {
+        // Generate states on a copy of the current state.
+        StateType temp = getState();
+        fun();
+        Checker<StateType>::get()->onNewState(getState());
+        getState() = temp;
+    }
+
+private:
+    StateType& getState() { return *static_cast<StateType*>(this); }
+};
+
+struct State : public ModelState<State> {
     int8_t big;
     int8_t small;
-
-    Fingerprint prevHash;
 
     // TODO: Symmetry.
     Fingerprint hash() const;
@@ -50,13 +64,6 @@ struct State {
     }
     bool satisfyInvariant() const;
     void generate();
-    void either(std::function<void()> fun) {
-        // Generate states on a copy of the current state.
-        State temp = *this;
-        fun();
-        Checker<State>::get()->onNewState(*this);
-        *(State*)this = temp;
-    }
 };
 
 Fingerprint State::hash() const {
