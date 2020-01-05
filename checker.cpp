@@ -29,6 +29,7 @@ struct State {
         return out << "[big: " << (int)s.big << ", small: " << (int)s.small << "]" << std::endl;
     }
     bool satisfyInvariant() const;
+    void generate();
 };
 
 Fingerprint State::hash() const {
@@ -39,26 +40,15 @@ bool State::satisfyInvariant() const {
     return big != 4_b;
 }
 
-class StateGenerator {
-public:
-    virtual ~StateGenerator() = default;
-    // Mutate the state in-place to generate a new state.
-    // The new state can be the same as the old one.
-    // Passing by reference for convenience.
-    virtual void generate(State& state) = 0;
-};
-
-
 template <class StateType>
 class Checker {
 public:
-    Checker(StateGenerator* generator) : _generator(generator) {}
     void run(std::vector<StateType> initialStates);
     void onNewState(const StateType&);
 
 private:
     std::vector<StateType> trace(const StateType& endState) const;
-    StateGenerator* _generator;
+
     std::unordered_map<Fingerprint, StateType> _seenStates;
     std::queue<StateType> _unvisited;
 };
@@ -87,7 +77,7 @@ void Checker<StateType>::run(std::vector<StateType> initialStates) {
             // Create the new state.
             auto newState = curState;
             newState.prevHash = curState.hash();
-            _generator->generate(newState);
+            newState.generate();
         }
     } catch (InvariantViolatedException& exp) {}
 }
@@ -127,60 +117,52 @@ std::vector<StateType> Checker<StateType>::trace(const StateType& endState) cons
     return trace;
 }
 
-class DieHardStateGenerator : public StateGenerator {
-public:
-    ~DieHardStateGenerator() = default;
+void State::generate() {
+    auto wrap = [&](std::function<void()> fun) {
+        // Generate states on a copy of the current state.
+        State temp = *this;
+        fun();
+        onNewState(*this);
+        *(State*)this = temp;
+    };
 
-    void generate(State& state) override {
-        // TODO: Replace this with "Either" syntax sugar.
-        auto wrap = [&](std::function<void()> fun) {
-            // Run the state generator on a state copy.
-            auto temp = state;
-            fun();
-            onNewState(state);
-            state = temp;
-        };
+    // FillSmallJug
+    wrap([&](){ small = 3_b; });
 
-        // FillSmallJug
-        wrap([&](){ state.small = 3_b; });
+    // FillBigJug
+    wrap([&](){ big = 5_b; });
 
-        // FillBigJug
-        wrap([&](){ state.big = 5_b; });
+    // EmptySmallJug
+    wrap([&](){ small = 0_b; });
 
-        // EmptySmallJug
-        wrap([&](){ state.small = 0_b; });
+    // EmptyBigJug
+    wrap([&](){ big = 0_b; });
 
-        // EmptyBigJug
-        wrap([&](){ state.big = 0_b; });
+    // SmallToBig
+    wrap([&](){
+        if (big + small > 5) {
+            big = 5_b;
+            small = big + small - 5_b;
+        } else {
+            big += small;
+            small = 0;
+        }
+    });
 
-        // SmallToBig
-        wrap([&](){
-            if (state.big + state.small > 5) {
-                state.big = 5_b;
-                state.small = state.big + state.small - 5_b;
-            } else {
-                state.big += state.small;
-                state.small = 0;
-            }
-        });
-
-        // BigToSmall
-        wrap([&](){
-            if (state.big + state.small > 3) {
-                state.big = state.big + state.small - 3_b;
-                state.small = 3_b;
-            } else {
-                state.small += state.big;
-                state.big = 0;
-            }
-        });
-    }
-};
+    // BigToSmall
+    wrap([&](){
+        if (big + small > 3) {
+            big = big + small - 3_b;
+            small = 3_b;
+        } else {
+            small += big;
+            big = 0;
+        }
+    });
+}
 
 int main(int argv, char** argc) {
-    DieHardStateGenerator generator;
-
-    Checker<State> checker(&generator);
+    Checker<State> checker;
     __global_checker = &checker;
 
     State initialState;
