@@ -39,6 +39,9 @@ bool State::satisfyInvariant() const {
     return big != 4_b;
 }
 
+
+template <class StateType> class Checker;
+
 class StateGenerator {
 public:
     virtual ~StateGenerator() = default;
@@ -48,31 +51,33 @@ public:
     virtual void generate(State& state) = 0;
 
 protected:
-    void onNewState(State s) { _onNewState(s); }
+    void onNewState(State& s) { _onNewState(s); }
 private:
-    std::function<void(State)> _onNewState;
-    friend class Checker;
+    std::function<void(State&)> _onNewState;
+    friend class Checker<State>;
 };
 
 class InvariantViolatedException : public std::exception {};
 
+template <class StateType>
 class Checker {
 public:
     Checker(StateGenerator* generator) : _generator(generator) {
             // Set the callback on generator.
-            generator->_onNewState = [this](State state) { _onNewState(state); };
+            generator->_onNewState = [this](StateType& state) { _onNewState(state); };
     }
-    void run(StateGenerator* generator, std::vector<State> initialStates);
+    void run(std::vector<StateType> initialStates);
 private:
-    void _onNewState(const State&);
+    void _onNewState(const StateType&);
 
-    std::vector<State> trace(const State& endState) const;
+    std::vector<StateType> trace(const StateType& endState) const;
     StateGenerator* _generator;
-    std::unordered_map<Fingerprint, State> _seenStates;
-    std::queue<State> _unvisited;
+    std::unordered_map<Fingerprint, StateType> _seenStates;
+    std::queue<StateType> _unvisited;
 };
 
-void Checker::run(StateGenerator* generator, std::vector<State> initialStates) {
+template <class StateType>
+void Checker<StateType>::run(std::vector<StateType> initialStates) {
     try {
         for (auto& s : initialStates) {
             _onNewState(s);
@@ -85,12 +90,13 @@ void Checker::run(StateGenerator* generator, std::vector<State> initialStates) {
             // Create the new state.
             auto newState = curState;
             newState.prevHash = curState.hash();
-            generator->generate(newState);
+            _generator->generate(newState);
         }
     } catch (InvariantViolatedException& exp) {}
 }
 
-void Checker::_onNewState(const State& state) {
+template <class StateType>
+void Checker<StateType>::_onNewState(const StateType& state) {
     // Check invariant.
     if (!state.satisfyInvariant()) {
         std::cout << "Violated invraiant, last state: " << state << std::endl;
@@ -111,8 +117,9 @@ void Checker::_onNewState(const State& state) {
     _unvisited.push(state);
 }
 
-std::vector<State> Checker::trace(const State& endState) const {
-    std::vector<State> trace;
+template <class StateType>
+std::vector<StateType> Checker<StateType>::trace(const StateType& endState) const {
+    std::vector<StateType> trace;
     trace.push_back(endState);
     auto cur = endState;
     while (cur.prevHash != 0) {
@@ -176,13 +183,13 @@ public:
 int main(int argv, char** argc) {
     DieHardStateGenerator generator;
 
-    Checker checker(&generator);
+    Checker<State> checker(&generator);
 
     State initialState;
     initialState.big = 0_b;
     initialState.small = 0_b;
 
-    checker.run(&generator, {initialState});
+    checker.run({initialState});
 
     return 0;
 }
