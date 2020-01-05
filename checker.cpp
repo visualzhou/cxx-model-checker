@@ -39,9 +39,6 @@ bool State::satisfyInvariant() const {
     return big != 4_b;
 }
 
-
-template <class StateType> class Checker;
-
 class StateGenerator {
 public:
     virtual ~StateGenerator() = default;
@@ -49,27 +46,17 @@ public:
     // The new state can be the same as the old one.
     // Passing by reference for convenience.
     virtual void generate(State& state) = 0;
-
-protected:
-    void onNewState(State& s) { _onNewState(s); }
-private:
-    std::function<void(State&)> _onNewState;
-    friend class Checker<State>;
 };
 
-class InvariantViolatedException : public std::exception {};
 
 template <class StateType>
 class Checker {
 public:
-    Checker(StateGenerator* generator) : _generator(generator) {
-            // Set the callback on generator.
-            generator->_onNewState = [this](StateType& state) { _onNewState(state); };
-    }
+    Checker(StateGenerator* generator) : _generator(generator) {}
     void run(std::vector<StateType> initialStates);
-private:
-    void _onNewState(const StateType&);
+    void onNewState(const StateType&);
 
+private:
     std::vector<StateType> trace(const StateType& endState) const;
     StateGenerator* _generator;
     std::unordered_map<Fingerprint, StateType> _seenStates;
@@ -77,10 +64,20 @@ private:
 };
 
 template <class StateType>
+void onNewState(StateType&) {};
+
+// Declare the global checker.
+Checker<State> *__global_checker = nullptr;
+template <>
+void onNewState(State& s) { __global_checker->onNewState(s); };
+
+class InvariantViolatedException : public std::exception {};
+
+template <class StateType>
 void Checker<StateType>::run(std::vector<StateType> initialStates) {
     try {
         for (auto& s : initialStates) {
-            _onNewState(s);
+            onNewState(s);
         }
 
         while (!_unvisited.empty()) {
@@ -96,7 +93,7 @@ void Checker<StateType>::run(std::vector<StateType> initialStates) {
 }
 
 template <class StateType>
-void Checker<StateType>::_onNewState(const StateType& state) {
+void Checker<StateType>::onNewState(const StateType& state) {
     // Check invariant.
     if (!state.satisfyInvariant()) {
         std::cout << "Violated invraiant, last state: " << state << std::endl;
@@ -184,6 +181,7 @@ int main(int argv, char** argc) {
     DieHardStateGenerator generator;
 
     Checker<State> checker(&generator);
+    __global_checker = &checker;
 
     State initialState;
     initialState.big = 0_b;
