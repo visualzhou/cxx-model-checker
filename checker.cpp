@@ -90,6 +90,12 @@ void Checker<StateType>::run(std::vector<StateType> initialStates) {
 
 template <class StateType>
 void Checker<StateType>::onNewState(const StateType& state) {
+    // If the fp doesn't exist in the unique map, add it.
+    auto fp = state.hash();
+    if (!_seenStates.insert({fp, state}).second) {
+        return;
+    }
+
     // Check invariant.
     if (!state.satisfyInvariant()) {
         std::cout << "Violated invraiant, last state: " << state << std::endl;
@@ -98,12 +104,6 @@ void Checker<StateType>::onNewState(const StateType& state) {
             std::cout << "State: " << i << std::endl << errorTrace[i] << std::endl << std::endl;
         }
         throw InvariantViolatedException();
-    }
-
-    // If the fp doesn't exist in the unique map, add it.
-    auto fp = state.hash();
-    if (!_seenStates.insert({fp, state}).second) {
-        return;
     }
 
     // Add the new to the unvisited queue.
