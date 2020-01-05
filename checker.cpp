@@ -91,6 +91,7 @@ void Checker<StateType>::run(std::vector<StateType> initialStates) {
             auto newState = curState;
             newState.prevHash = curState.hash();
             newState.generate();
+            onNewState(newState);
         }
     } catch (InvariantViolatedException& exp) {}
 }
