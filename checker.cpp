@@ -50,6 +50,13 @@ struct State {
     }
     bool satisfyInvariant() const;
     void generate();
+    void either(std::function<void()> fun) {
+        // Generate states on a copy of the current state.
+        State temp = *this;
+        fun();
+        Checker<State>::get()->onNewState(*this);
+        *(State*)this = temp;
+    }
 };
 
 Fingerprint State::hash() const {
@@ -117,28 +124,20 @@ std::vector<StateType> Checker<StateType>::trace(const StateType& endState) cons
 }
 
 void State::generate() {
-    auto wrap = [&](std::function<void()> fun) {
-        // Generate states on a copy of the current state.
-        State temp = *this;
-        fun();
-        Checker<State>::get()->onNewState(*this);
-        *(State*)this = temp;
-    };
-
     // FillSmallJug
-    wrap([&](){ small = 3_b; });
+    either([&](){ small = 3_b; });
 
     // FillBigJug
-    wrap([&](){ big = 5_b; });
+    either([&](){ big = 5_b; });
 
     // EmptySmallJug
-    wrap([&](){ small = 0_b; });
+    either([&](){ small = 0_b; });
 
     // EmptyBigJug
-    wrap([&](){ big = 0_b; });
+    either([&](){ big = 0_b; });
 
     // SmallToBig
-    wrap([&](){
+    either([&](){
         if (big + small > 5) {
             big = 5_b;
             small = big + small - 5_b;
@@ -149,7 +148,7 @@ void State::generate() {
     });
 
     // BigToSmall
-    wrap([&](){
+    either([&](){
         if (big + small > 3) {
             big = big + small - 3_b;
             small = 3_b;
