@@ -22,8 +22,8 @@ public:
 
 private:
     struct Stats {
-        int generated = 0;
-        int unique = 0;
+        uint64_t generated = 0;
+        uint64_t unique = 0;
         friend std::ostream& operator << (std::ostream &out, const Stats& s) {
             return out << "generated: " << s.generated << " unique: " << s.unique;
         }
@@ -96,7 +96,7 @@ void Checker<StateType>::onNewState(const StateType& state) {
 
     // Check invariant.
     if (!state.satisfyInvariant()) {
-        std::cout << "Violated invraiant, last state: " << state << std::endl;
+        std::cout << "Violated invariant." << std::endl;
         auto errorTrace = trace(state);
         for (size_t i = 0; i < errorTrace.size(); i++) {
             std::cout << "State: " << i << std::endl << errorTrace[i] << std::endl << std::endl;
