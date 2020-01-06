@@ -21,11 +21,19 @@ public:
     static Checker<StateType>* get() { return globalChecker; }
 
 private:
+    struct Stats {
+        int generated = 0;
+        int unique = 0;
+        friend std::ostream& operator << (std::ostream &out, const Stats& s) {
+            return out << "generated: " << s.generated << " unique: " << s.unique;
+        }
+    };
     static Checker<StateType>* globalChecker;
     std::vector<StateType> trace(const StateType& endState) const;
 
     std::unordered_map<Fingerprint, StateType> _seenStates;
     std::queue<StateType> _unvisited;
+    Stats _stats;
 };
 
 template <class StateType>
@@ -70,15 +78,21 @@ void Checker<StateType>::run(std::vector<StateType> initialStates) {
             onNewState(newState);
         }
     } catch (InvariantViolatedException& exp) {}
+
+    std::cout << "Model checking finished." << std::endl << _stats
+              << " hash table size: " << _seenStates.size() << std::endl;
 }
 
 template <class StateType>
 void Checker<StateType>::onNewState(const StateType& state) {
+    _stats.generated++;
+
     // If the fp doesn't exist in the unique map, add it.
     auto fp = state.hash();
     if (!_seenStates.insert({fp, state}).second) {
         return;
     }
+    _stats.unique++;
 
     // Check invariant.
     if (!state.satisfyInvariant()) {
