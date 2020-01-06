@@ -1,6 +1,7 @@
 .vscode
 CMake*
 Makefile
-checker
+*checker
 cmake_install.cmake
-
+*.cbp
+.idea

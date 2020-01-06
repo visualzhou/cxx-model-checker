@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Process Abseil's CMake build system
 add_subdirectory(abseil-cpp)
 
-add_executable(checker checker.cpp)
-target_link_libraries(checker absl::hash)
+add_executable(die_hard_checker die_hard_checker.cpp)
+target_link_libraries(die_hard_checker absl::hash)
 
 
