@@ -10,8 +10,9 @@
 #include <unordered_map>
 #include <exception>
 #include <algorithm>
+#include "abseil-cpp/absl/hash/hash.h"
 
-using Fingerprint = long long;
+using Fingerprint = uint64_t;
 
 template <class StateType>
 class Checker {
@@ -32,13 +33,12 @@ private:
 template <class StateType>
 Checker<StateType>* Checker<StateType>::globalChecker = new Checker<StateType>;
 
-int8_t operator "" _b(unsigned long long number) {
-    return (int8_t)number;
-}
-
 template <class StateType>
 struct ModelState {
     Fingerprint prevHash;
+    Fingerprint hash() const {
+        return absl::Hash<StateType>{}(*static_cast<const StateType*>(this));
+    }
 protected:
     void either(const std::function<void()>& fun) {
         // Generate states on a copy of the current state.
@@ -116,44 +116,47 @@ struct State : public ModelState<State> {
     int8_t big;
     int8_t small;
 
+    friend bool operator==(const State& lhs, const State& rhs) {
+        return lhs.big == rhs.big && lhs.small == rhs.small;
+    }
+
     // TODO: Symmetry.
-    Fingerprint hash() const;
+    template <typename H>
+    friend H AbslHashValue(H h, const State& s) {
+        return H::combine(std::move(h), s.big, s.small);
+    }
 
     friend std::ostream& operator << (std::ostream &out, const State& s) {
-        return out << "[big: " << (int)s.big << ", small: " << (int)s.small << "]";
+        return out << "fp: " << s.hash() << " [big: " << (int)s.big << ", small: " << (int)s.small << "]";
     }
     bool satisfyInvariant() const;
     void generate();
 };
 
-Fingerprint State::hash() const {
-    return ((Fingerprint)big << (sizeof(small) * 8)) | (Fingerprint)small;
-}
-
 // Define invariant.
 bool State::satisfyInvariant() const {
-    return big != 4_b;
+    return big != 4;
 }
 
 // Define the model.
 void State::generate() {
     // FillSmallJug
-    either([&](){ small = 3_b; });
+    either([&](){ small = 3; });
 
     // FillBigJug
-    either([&](){ big = 5_b; });
+    either([&](){ big = 5; });
 
     // EmptySmallJug
-    either([&](){ small = 0_b; });
+    either([&](){ small = 0; });
 
     // EmptyBigJug
-    either([&](){ big = 0_b; });
+    either([&](){ big = 0; });
 
     // SmallToBig
     either([&](){
         if (big + small > 5) {
-            big = 5_b;
-            small = big + small - 5_b;
+            big = 5;
+            small = big + small - 5;
         } else {
             big += small;
             small = 0;
@@ -163,8 +166,8 @@ void State::generate() {
     // BigToSmall
     either([&](){
         if (big + small > 3) {
-            big = big + small - 3_b;
-            small = 3_b;
+            big = big + small - 3;
+            small = 3;
         } else {
             small += big;
             big = 0;
@@ -174,8 +177,8 @@ void State::generate() {
 
 int main(int argv, char** argc) {
     State initialState;
-    initialState.big = 0_b;
-    initialState.small = 0_b;
+    initialState.big = 0;
+    initialState.small = 0;
 
     Checker<State>::get()->run({initialState});
 
