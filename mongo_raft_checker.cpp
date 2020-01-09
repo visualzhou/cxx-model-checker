@@ -31,6 +31,13 @@ std::ostream& operator << (std::ostream &out, const std::vector<T>& v) {
     return out;
 }
 
+std::ostream& operator << (std::ostream &out, const RaftState state) {
+    switch (state) {
+        case Primary: return out << "Primary";
+        case Secondary: return out << "Secondary";
+    }
+}
+
 struct MongoState : public ModelState<MongoState> {
     TermType globalCurrentTerm;
 
@@ -59,11 +66,6 @@ struct MongoState : public ModelState<MongoState> {
     void generate();
 };
 
-// Define invariant.
-bool MongoState::satisfyInvariant() const {
-    return true;
-}
-
 bool MongoState::satisfyConstraint() const {
     if (globalCurrentTerm > 3) return false;
     return std::all_of(logs.begin(), logs.end(), [&](const Log& log){
@@ -71,9 +73,35 @@ bool MongoState::satisfyConstraint() const {
     });
 }
 
+bool IsMajority(int nodeCount) {
+    return nodeCount * 2 > ALL_NODES;
+}
+
 bool CanRollbackOplog(const Log& rlog, const Log& slog) {
     if (rlog.empty() || slog.empty()) return false;
     return rlog.back() < slog.back();
+}
+
+bool RollbackCommitted(const std::vector<Log>& logs, Node me) {
+    if (logs[me].empty()) return false;
+
+    const auto& myLog = logs[me];
+    auto replicaCount = std::count_if(logs.begin(), logs.end(), [&](const Log& log) {
+        return log.size() >= myLog.size() && log[myLog.size() - 1] == myLog.back();
+    });
+
+    if (!IsMajority(replicaCount)) return false;
+
+    return std::any_of(logs.begin(), logs.end(), [&](const Log& log) {
+        return CanRollbackOplog(logs[me], log);
+    });
+}
+
+// Define invariant.
+bool MongoState::satisfyInvariant() const {
+    return std::all_of(all_nodes.begin(), all_nodes.end(), [&](Node node) {
+        return !RollbackCommitted(logs, node);
+    });
 }
 
 bool NotBehind(const Log& me, const Log& syncSource) {
@@ -118,7 +146,7 @@ void MongoState::generate() {
                 [&](const Log& log) {
             return NotBehind(logs[p], log);
         });
-        if (notBehindCount * 2 > ALL_NODES) {
+        if (IsMajority(notBehindCount)) {
             either([&](){
                 // Step down all nodes.
                 for (auto& s : states) {
