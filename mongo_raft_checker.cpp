@@ -55,15 +55,20 @@ struct MongoState : public ModelState<MongoState> {
                    << ", states: " << s.states  << ", logs: " << s.logs << "]";
     }
     bool satisfyInvariant() const;
+    bool satisfyConstraint() const;
     void generate();
 };
 
 // Define invariant.
 bool MongoState::satisfyInvariant() const {
-    return std::any_of(logs.begin(), logs.end(), [&](const Log& log){
-        return log.size() < 2;
-    });
+    return true;
+}
 
+bool MongoState::satisfyConstraint() const {
+    if (globalCurrentTerm > 3) return false;
+    return std::all_of(logs.begin(), logs.end(), [&](const Log& log){
+        return log.size() < 3;
+    });
 }
 
 bool CanRollbackOplog(const Log& rlog, const Log& slog) {

@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include <cstddef>
 #include <iostream>
 #include <sstream>
@@ -104,6 +103,8 @@ void Checker<StateType>::onNewState(const StateType& state) {
         }
         throw InvariantViolatedException();
     }
+
+    if (!state.satisfyConstraint()) return;
 
     // Add the new to the unvisited queue.
     _unvisited.push(state);
