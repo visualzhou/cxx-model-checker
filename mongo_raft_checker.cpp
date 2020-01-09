@@ -39,7 +39,7 @@ std::ostream& operator << (std::ostream &out, const RaftState state) {
 }
 
 struct MongoState : public ModelState<MongoState> {
-    TermType globalCurrentTerm;
+    TermType globalCurrentTerm = 0;
 
     std::vector<RaftState> states{ALL_NODES, Secondary};
 
@@ -79,11 +79,15 @@ bool IsMajority(int nodeCount) {
 
 bool CanRollbackOplog(const Log& rlog, const Log& slog) {
     if (rlog.empty() || slog.empty()) return false;
-    return rlog.back() < slog.back();
+    return rlog.back() < slog.back()
+        && (rlog.size() > slog.size() || slog[rlog.size() - 1] != rlog.back());
 }
 
-bool RollbackCommitted(const std::vector<Log>& logs, Node me) {
+bool RollbackCommitted(const std::vector<Log>& logs, TermType globalTerm, Node me) {
     if (logs[me].empty()) return false;
+
+    // Commenting out this line will reproduce SERVER-22136.
+    if (logs[me].back() != globalTerm) return false;
 
     const auto& myLog = logs[me];
     auto replicaCount = std::count_if(logs.begin(), logs.end(), [&](const Log& log) {
@@ -100,7 +104,7 @@ bool RollbackCommitted(const std::vector<Log>& logs, Node me) {
 // Define invariant.
 bool MongoState::satisfyInvariant() const {
     return std::all_of(all_nodes.begin(), all_nodes.end(), [&](Node node) {
-        return !RollbackCommitted(logs, node);
+        return !(states[node] == Primary && RollbackCommitted(logs, globalCurrentTerm, node));
     });
 }
 
@@ -171,8 +175,6 @@ void MongoState::generate() {
 
 int main(int argv, char** argc) {
     MongoState initialState;
-    initialState.globalCurrentTerm = 0;
-    initialState.states[N1] = Primary;
 
     Checker<MongoState>::get()->run({initialState});
 
