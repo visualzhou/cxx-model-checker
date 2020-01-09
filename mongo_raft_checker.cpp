@@ -60,12 +60,22 @@ struct MongoState : public ModelState<MongoState> {
 
 // Define invariant.
 bool MongoState::satisfyInvariant() const {
-    return logs[N1].size() < 3 && logs[N1].size() < 2;
+    return std::any_of(logs.begin(), logs.end(), [&](const Log& log){
+        return log.size() < 2;
+    });
+
 }
 
 bool CanRollbackOplog(const Log& rlog, const Log& slog) {
     if (rlog.empty() || slog.empty()) return false;
     return rlog.back() < slog.back();
+}
+
+bool NotBehind(const Log& me, const Log& syncSource) {
+    if (syncSource.empty()) return true;
+    if (me.empty()) return false;
+    return (me.back() > syncSource.back())
+        || (me.back() == syncSource.back() && me.size() >= syncSource.size());
 }
 
 // Define the model.
@@ -98,8 +108,26 @@ void MongoState::generate() {
         }
     }
 
+    auto BecomePrimaryByMagic = [&](Node p) {
+        auto notBehindCount = std::count_if(logs.begin(), logs.end(),
+                [&](const Log& log) {
+            return NotBehind(logs[p], log);
+        });
+        if (notBehindCount * 2 > ALL_NODES) {
+            either([&](){
+                // Step down all nodes.
+                for (auto& s : states) {
+                    s = Secondary;
+                }
+                states[p] = Primary;
+                globalCurrentTerm++;
+            });
+        }
+    };
+
     // ClientWrite
     for (auto n : all_nodes) {
+        BecomePrimaryByMagic(n);
         if (states[n] == Primary) {
             either([&]() {
                 logs[n].push_back({globalCurrentTerm});
@@ -112,7 +140,6 @@ int main(int argv, char** argc) {
     MongoState initialState;
     initialState.globalCurrentTerm = 0;
     initialState.states[N1] = Primary;
-
 
     Checker<MongoState>::get()->run({initialState});
 
