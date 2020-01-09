@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <iostream>
+#include <sstream>
 #include <functional>
 #include <queue>
 #include <unordered_map>
@@ -17,6 +18,7 @@ class Checker {
 public:
     void run(std::vector<StateType> initialStates);
     void onNewState(const StateType&);
+    std::string getStats() const;
 
     static Checker<StateType>* get() { return globalChecker; }
 
@@ -79,8 +81,7 @@ void Checker<StateType>::run(std::vector<StateType> initialStates) {
         }
     } catch (InvariantViolatedException& exp) {}
 
-    std::cout << "Model checking finished." << std::endl << _stats
-              << " hash table size: " << _seenStates.size() << std::endl;
+    std::cout << "Model checking finished." << std::endl << getStats() << std::endl;
 }
 
 template <class StateType>
@@ -119,4 +120,11 @@ std::vector<StateType> Checker<StateType>::trace(const StateType& endState) cons
     }
     std::reverse(trace.begin(), trace.end());
     return trace;
+}
+
+template <class StateType>
+std::string Checker<StateType>::getStats() const {
+    std::stringstream str;
+    str << _stats << " hash table size: " << _seenStates.size();
+    return str.str();
 }

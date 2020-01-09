@@ -51,7 +51,7 @@ struct MongoState : public ModelState<MongoState> {
     }
 
     friend std::ostream& operator << (std::ostream &out, const MongoState& s) {
-        return out << "fp: " << s.hash() << " [globalCurrentTerm: " << s.globalCurrentTerm
+        return out << " [globalCurrentTerm: " << s.globalCurrentTerm
                    << ", states: " << s.states  << ", logs: " << s.logs << "]";
     }
     bool satisfyInvariant() const;
