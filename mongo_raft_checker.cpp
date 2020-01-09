@@ -7,6 +7,8 @@
 
 #include "checker.h"
 #include <vector>
+#include <thread>
+#include <chrono>
 
 //
 // Define the state.
@@ -176,7 +178,18 @@ void MongoState::generate() {
 int main(int argv, char** argc) {
     MongoState initialState;
 
+    bool finished = false;
+
+    std::thread reportingThread([&](){
+        while (!finished) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::cout << Checker<MongoState>::get()->getStats() << std::endl;
+        }
+    });
+
     Checker<MongoState>::get()->run({initialState});
 
+    finished = true;
+    reportingThread.join();
     return 0;
 }
