@@ -1,6 +1,5 @@
 /**
  * A model checker written in C++.
- * Demo https://github.com/jameshfisher/tlaplus/blob/master/examples/DieHard/DieHard.tla
  */
 
 #include <cstddef>
