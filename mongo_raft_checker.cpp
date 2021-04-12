@@ -27,7 +27,7 @@ template <class T>
 std::ostream& operator << (std::ostream &out, const std::vector<T>& v) {
     out << "[";
     for (auto& e : v) {
-        out << e << ",";
+        out << e << (&e == &v.back() ? "" : ",");
     }
     out << "]";
     return out;
