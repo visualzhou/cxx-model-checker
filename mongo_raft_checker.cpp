@@ -73,9 +73,12 @@ struct MongoState : public ModelState<MongoState> {
 };
 
 bool MongoState::satisfyConstraint() const {
-    if (globalCurrentTerm > 3) return false;
+    const int MAX_TERM = 4;
+    const int MAX_LOG_SIZE = 4;
+
+    if (globalCurrentTerm > MAX_TERM) return false;
     return std::all_of(logs.begin(), logs.end(), [&](const Log& log){
-        return log.size() < 3;
+        return log.size() <= MAX_LOG_SIZE;
     });
 }
 
