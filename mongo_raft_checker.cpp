@@ -9,6 +9,10 @@
 #include <vector>
 #include <thread>
 #include <chrono>
+#include <mutex>
+#include <condition_variable>
+
+using namespace std::chrono_literals;
 
 //
 // Define the state.
@@ -178,18 +182,26 @@ void MongoState::generate() {
 int main(int argv, char** argc) {
     MongoState initialState;
 
+    std::mutex finish_mutex;
+    std::condition_variable finish_cv;
     bool finished = false;
 
     std::thread reportingThread([&](){
+        std::unique_lock<std::mutex> lk(finish_mutex);
         while (!finished) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            // std::this_thread::sleep_for(std::chrono::seconds(1));
+            finish_cv.wait_for(lk, 1s);
             std::cout << Checker<MongoState>::get()->getStats() << std::endl;
         }
     });
 
     Checker<MongoState>::get()->run({initialState});
+    {
+      std::unique_lock<std::mutex> lk(finish_mutex);
+      finished = true;
+      finish_cv.notify_all();
+    }
 
-    finished = true;
     reportingThread.join();
     return 0;
 }
