@@ -28,6 +28,7 @@ struct State : public ModelState<State> {
         return out << "fp: " << s.hash() << " [big: " << (int)s.big << ", small: " << (int)s.small << "]";
     }
     bool satisfyInvariant() const;
+    bool satisfyConstraint() const { return true; }
     void generate();
 };
 

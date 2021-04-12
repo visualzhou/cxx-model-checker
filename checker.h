@@ -42,7 +42,7 @@ Checker<StateType>* Checker<StateType>::globalChecker = new Checker<StateType>;
 
 template <class StateType>
 struct ModelState {
-    Fingerprint prevHash;
+    Fingerprint prevHash = 0;
     Fingerprint hash() const {
         return absl::Hash<StateType>{}(*static_cast<const StateType*>(this));
     }
